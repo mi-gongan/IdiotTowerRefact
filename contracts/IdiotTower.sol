@@ -78,7 +78,7 @@ contract IdiotTower is ERC721Enumerable, Ownable {
     require(0.001 ether * count < msg.value, "Caller sent lower than price");
 
     if ((userStatus[msg.sender] & 1) == 0) {
-      userStatus[msg.sender] &= 1;
+      userStatus[msg.sender] |= 1;
       userList.push(msg.sender);
     }
 
@@ -131,8 +131,8 @@ contract IdiotTower is ERC721Enumerable, Ownable {
   ) internal virtual override(ERC721Enumerable) {
     super._beforeTokenTransfer(from, to, tokenId);
 
-    if ((userStatus[msg.sender] & 2) != 0) {
-      userStatus[msg.sender] &= 2;
+    if ((userStatus[msg.sender] & 2) == 0) {
+      userStatus[msg.sender] |= 2;
       cowardList.push(msg.sender);
     }
   }
