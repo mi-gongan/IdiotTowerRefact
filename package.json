@@ -1,0 +1,15 @@
+{
+  "name": "hardhat-project",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^1.0.3",
+    "@nomicfoundation/hardhat-toolbox": "^1.0.2",
+    "hardhat": "^2.11.1"
+  },
+  "dependencies": {
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.6",
+    "@openzeppelin/contracts": "^4.7.3",
+    "chai": "^4.3.6",
+    "prettier-plugin-solidity": "^1.0.0-beta.24",
+    "remixd": "^0.2.4"
+  }
+}
