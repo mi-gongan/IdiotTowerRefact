@@ -8,10 +8,10 @@ describe("Idiot Tower", function () {
   const ownerMintNum = 3;
 
   async function deployIdiotTower() {
-    const [owner, otherAccount] = await ethers.getSigners();
-
     const Token = await ethers.getContractFactory("IdiotTower");
+    const [owner, otherAccount] = await ethers.getSigners();
     const IdiotTower = await Token.deploy();
+    await IdiotTower.deployed();
 
     return { owner, otherAccount, Token, IdiotTower };
   }
@@ -99,22 +99,42 @@ describe("Idiot Tower", function () {
       const { IdiotTower, owner, otherAccount } = await loadFixture(
         deployIdiotTower
       );
-      expect(await IdiotTower.getUserList()).to.equal([
-        owner.address,
-        otherAccount.address,
-      ]);
+      const userList = [owner.address, otherAccount.address];
+      expect(await IdiotTower.getUserList()).to.equal(userList);
     });
   });
 
   describe("4. Check the operation of transfer", async function () {
-    it("4.1 operate to transfer from another account to owner", async function () {});
+    it("4.1 operate to transfer from another account to owner", async function () {
+      const { IdiotTower, owner, otherAccount } = await loadFixture(
+        deployIdiotTower
+      );
+      const tokenIndex = IdiotTower.tokenOfOwnerByIndex(
+        otherAccount.address,
+        1
+      );
+      await expect(
+        IdiotTower.connect(otherAccount).transferFrom(
+          otherAccount.address,
+          owner.address,
+          tokenIndex
+        )
+      ).to.changeTokenBalances(
+        IdiotTower,
+        [otherAccount.address, owner.address],
+        [-1, 1]
+      );
+    });
 
-    it("4.2 check the owner(receiver) token", async function () {});
+    it("4.4 check whether another account is coward", async function () {
+      const { IdiotTower, otherAccount } = await loadFixture(deployIdiotTower);
+      expect(await IdiotTower.checkUserIsCoward(otherAccount.address)).to.true;
+    });
 
-    it("4.3 check the another account(sender) token", async function () {});
-
-    it("4.4 check whether another account is coward", async function () {});
-
-    it("4.5 check the cowardList", async function () {});
+    it("4.5 check the cowardList", async function () {
+      const { IdiotTower, otherAccount } = await loadFixture(deployIdiotTower);
+      const cowardList = [otherAccount.address];
+      expect(await IdiotTower.getCowardList()).to.equal(cowardList);
+    });
   });
 });
