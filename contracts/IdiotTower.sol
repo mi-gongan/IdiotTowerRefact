@@ -36,9 +36,6 @@ contract IdiotTower is ERC721Enumerable, Ownable {
   address[] public userList;
   address[] public cowardList;
 
-  mapping(address => bool) public addressIsMinting;
-  mapping(address => bool) public addressIsCoward;
-
   // 0: not minted, not coward
   // 1: minted, not coward
   // 2: not minted, coward
@@ -52,8 +49,11 @@ contract IdiotTower is ERC721Enumerable, Ownable {
     );
     require(count < maxMintNumber);
 
-    if ((userStatus[msg.sender] & 1) == 0) {
-      userStatus[msg.sender] &= 1;
+    if ((userStatus[msg.sender]) == 0) {
+      userStatus[msg.sender] = 1;
+      userList.push(msg.sender);
+    }else if((userStatus[msg.sender]) == 2){
+      userStatus[msg.sender] = 3;
       userList.push(msg.sender);
     }
 
@@ -78,8 +78,8 @@ contract IdiotTower is ERC721Enumerable, Ownable {
     require(0.001 ether * count < msg.value, "Caller sent lower than price");
 
     if ((userStatus[msg.sender] & 1) == 0) {
-      userStatus[msg.sender] |= 1;
-      userList.push(msg.sender);
+        userStatus[msg.sender] |= 1;
+        userList.push(msg.sender);
     }
 
     for (uint256 i = 0; i < count; i++) {
@@ -109,31 +109,33 @@ contract IdiotTower is ERC721Enumerable, Ownable {
   }
 
   function checkUserHaveMinted(address _userAddress)
-    external
+    public
     view
     returns (bool)
   {
-    return addressIsMinting[_userAddress];
+    return (userStatus[_userAddress]==1)||(userStatus[_userAddress]==3);
   }
 
   function checkUserIsCoward(address _userAddress)
-    external
+    public
     view
     returns (bool)
   {
-    return addressIsCoward[_userAddress];
+    return (userStatus[_userAddress]&2)!=0;
   }
 
-  function _beforeTokenTransfer(
+  function justTokenTransfer(
     address from,
     address to,
     uint256 tokenId
-  ) internal virtual override(ERC721Enumerable) {
-    super._beforeTokenTransfer(from, to, tokenId);
+  ) public  {
 
-    if ((userStatus[msg.sender] & 2) == 0) {
-      userStatus[msg.sender] |= 2;
-      cowardList.push(msg.sender);
+    require(ownerOf(tokenId)==from,"You are not owner of token");
+    transferFrom(from, to, tokenId);
+
+    if ((userStatus[from] & 2) == 0) {
+        userStatus[from] |= 2;
+        cowardList.push(from);
     }
   }
 

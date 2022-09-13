@@ -42,13 +42,13 @@ describe("Idiot Tower", function () {
   });
 
   describe("2. Check the wrong access", function () {
-    it("2.1 case that owner use mint", async function () {
+    it("2.1 case that owner use the function of mint", async function () {
       const { IdiotTower, owner } = await loadFixture(deployIdiotTower);
       await expect(IdiotTower.connect(owner).mint(1)).to.revertedWith(
         "Owner can't mint this token"
       );
     });
-    it("2.2 case that otherAccount use ownerMint", async function () {
+    it("2.2 case that otherAccount use the function of ownerMint", async function () {
       const { IdiotTower, otherAccount } = await loadFixture(deployIdiotTower);
       await expect(
         IdiotTower.connect(otherAccount).ownerMint(1)
@@ -59,48 +59,26 @@ describe("Idiot Tower", function () {
   describe("3. Check the operation of minting", async function () {
     it("3.1 another account minting", async function () {
       const { IdiotTower, otherAccount } = await loadFixture(deployIdiotTower);
+      //mint 3 pieces
       await IdiotTower.connect(otherAccount).mint(otherAccountMintNum, {
         value: ethers.utils.parseEther("0.3"),
       });
-    });
-
-    it("3.2 check whether another account has minted", async function () {
-      const { IdiotTower, otherAccount } = await loadFixture(deployIdiotTower);
       expect(await IdiotTower.checkUserHaveMinted(otherAccount.address)).to
         .true;
-    });
-
-    it("3.3 check the another account token", async function () {
-      const { IdiotTower, otherAccount } = await loadFixture(deployIdiotTower);
       expect(await IdiotTower.balanceOf(otherAccount.address)).to.equal(
         otherAccountMintNum
       );
+      expect(await IdiotTower.getUserList()).to.deep.equal([
+        otherAccount.address,
+      ]);
     });
 
-    it("3.4 owner minting", async function () {
+    it("3.2 owner minting", async function () {
       const { IdiotTower, owner } = await loadFixture(deployIdiotTower);
       await IdiotTower.connect(owner).ownerMint(ownerMintNum);
-    });
-
-    it("3.5 check whether owner has minted", async function () {
-      const { IdiotTower, otherAccount } = await loadFixture(deployIdiotTower);
-      expect(await IdiotTower.checkUserHaveMinted(otherAccount.address)).to
-        .true;
-    });
-
-    it("3.6 check the owner token", async function () {
-      const { IdiotTower, otherAccount } = await loadFixture(deployIdiotTower);
-      expect(await IdiotTower.balanceOf(otherAccount.address)).to.equal(
-        otherAccountMintNum
-      );
-    });
-
-    it("3.7 check the userList", async function () {
-      const { IdiotTower, owner, otherAccount } = await loadFixture(
-        deployIdiotTower
-      );
-      const userList = [owner.address, otherAccount.address];
-      expect(await IdiotTower.getUserList()).to.equal(userList);
+      expect(await IdiotTower.checkUserHaveMinted(owner.address)).to.true;
+      expect(await IdiotTower.balanceOf(owner.address)).to.equal(ownerMintNum);
+      expect(await IdiotTower.getUserList()).to.deep.equal([owner.address]);
     });
   });
 
@@ -109,12 +87,15 @@ describe("Idiot Tower", function () {
       const { IdiotTower, owner, otherAccount } = await loadFixture(
         deployIdiotTower
       );
+      await IdiotTower.connect(otherAccount).mint(otherAccountMintNum, {
+        value: ethers.utils.parseEther("0.3"),
+      });
       const tokenIndex = IdiotTower.tokenOfOwnerByIndex(
         otherAccount.address,
         1
       );
       await expect(
-        IdiotTower.connect(otherAccount).transferFrom(
+        IdiotTower.connect(otherAccount).justTokenTransfer(
           otherAccount.address,
           owner.address,
           tokenIndex
@@ -124,17 +105,9 @@ describe("Idiot Tower", function () {
         [otherAccount.address, owner.address],
         [-1, 1]
       );
-    });
-
-    it("4.4 check whether another account is coward", async function () {
-      const { IdiotTower, otherAccount } = await loadFixture(deployIdiotTower);
       expect(await IdiotTower.checkUserIsCoward(otherAccount.address)).to.true;
-    });
-
-    it("4.5 check the cowardList", async function () {
-      const { IdiotTower, otherAccount } = await loadFixture(deployIdiotTower);
       const cowardList = [otherAccount.address];
-      expect(await IdiotTower.getCowardList()).to.equal(cowardList);
+      expect(await IdiotTower.getCowardList()).to.deep.equal(cowardList);
     });
   });
 });
