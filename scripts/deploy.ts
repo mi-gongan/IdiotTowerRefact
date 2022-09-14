@@ -5,7 +5,7 @@ async function main() {
   const IdiotTower = await Token.deploy();
 
   await IdiotTower.deployed();
-
+  console.log("IdiotTower address:", IdiotTower.address);
 }
 
 main().catch((error) => {

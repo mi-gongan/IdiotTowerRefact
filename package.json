@@ -10,6 +10,7 @@
     "@nomicfoundation/hardhat-network-helpers": "^1.0.6",
     "@openzeppelin/contracts": "^4.7.3",
     "chai": "^4.3.6",
+    "dotenv": "^16.0.2",
     "prettier-plugin-solidity": "^1.0.0-beta.24",
     "remixd": "^0.2.4"
   }
