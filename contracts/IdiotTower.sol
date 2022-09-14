@@ -52,7 +52,7 @@ contract IdiotTower is ERC721Enumerable, Ownable {
     if ((userStatus[msg.sender]) == 0) {
       userStatus[msg.sender] = 1;
       userList.push(msg.sender);
-    }else if((userStatus[msg.sender]) == 2){
+    } else if ((userStatus[msg.sender]) == 2) {
       userStatus[msg.sender] = 3;
       userList.push(msg.sender);
     }
@@ -78,8 +78,8 @@ contract IdiotTower is ERC721Enumerable, Ownable {
     require(0.001 ether * count < msg.value, "Caller sent lower than price");
 
     if ((userStatus[msg.sender] & 1) == 0) {
-        userStatus[msg.sender] |= 1;
-        userList.push(msg.sender);
+      userStatus[msg.sender] |= 1;
+      userList.push(msg.sender);
     }
 
     for (uint256 i = 0; i < count; i++) {
@@ -113,29 +113,24 @@ contract IdiotTower is ERC721Enumerable, Ownable {
     view
     returns (bool)
   {
-    return (userStatus[_userAddress]==1)||(userStatus[_userAddress]==3);
+    return (userStatus[_userAddress] == 1) || (userStatus[_userAddress] == 3);
   }
 
-  function checkUserIsCoward(address _userAddress)
-    public
-    view
-    returns (bool)
-  {
-    return (userStatus[_userAddress]&2)!=0;
+  function checkUserIsCoward(address _userAddress) public view returns (bool) {
+    return (userStatus[_userAddress] & 2) != 0;
   }
 
   function justTokenTransfer(
     address from,
     address to,
     uint256 tokenId
-  ) public  {
-
-    require(ownerOf(tokenId)==from,"You are not owner of token");
+  ) public {
+    require(ownerOf(tokenId) == from, "You are not owner of token");
     transferFrom(from, to, tokenId);
 
     if ((userStatus[from] & 2) == 0) {
-        userStatus[from] |= 2;
-        cowardList.push(from);
+      userStatus[from] |= 2;
+      cowardList.push(from);
     }
   }
 
