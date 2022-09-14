@@ -4,8 +4,8 @@ import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import "@nomicfoundation/hardhat-chai-matchers";
 
 describe("Idiot Tower", function () {
-  const otherAccountMintNum = 2;
-  const ownerMintNum = 3;
+  const otherAccountMintNum = 100;
+  const ownerMintNum = 100;
 
   async function deployIdiotTower() {
     const Token = await ethers.getContractFactory("IdiotTower");
@@ -61,13 +61,15 @@ describe("Idiot Tower", function () {
       const { IdiotTower, otherAccount } = await loadFixture(deployIdiotTower);
       //mint 3 pieces
       await IdiotTower.connect(otherAccount).mint(otherAccountMintNum, {
-        value: ethers.utils.parseEther("0.3"),
+        value: ethers.utils.parseEther("1"),
       });
       expect(await IdiotTower.checkUserHaveMinted(otherAccount.address)).to
         .true;
+      // check the balance of other account
       expect(await IdiotTower.balanceOf(otherAccount.address)).to.equal(
         otherAccountMintNum
       );
+      // check whether other account is asigned
       expect(await IdiotTower.getUserList()).to.deep.equal([
         otherAccount.address,
       ]);
@@ -77,7 +79,9 @@ describe("Idiot Tower", function () {
       const { IdiotTower, owner } = await loadFixture(deployIdiotTower);
       await IdiotTower.connect(owner).ownerMint(ownerMintNum);
       expect(await IdiotTower.checkUserHaveMinted(owner.address)).to.true;
+      // check the balance of owner
       expect(await IdiotTower.balanceOf(owner.address)).to.equal(ownerMintNum);
+      //check whether owner is assigned
       expect(await IdiotTower.getUserList()).to.deep.equal([owner.address]);
     });
   });
@@ -87,15 +91,18 @@ describe("Idiot Tower", function () {
       const { IdiotTower, owner, otherAccount } = await loadFixture(
         deployIdiotTower
       );
+      //other account mint 100 pieces
       await IdiotTower.connect(otherAccount).mint(otherAccountMintNum, {
-        value: ethers.utils.parseEther("0.3"),
+        value: ethers.utils.parseEther("100"),
       });
+      // get the first token of other account
       const tokenIndex = IdiotTower.tokenOfOwnerByIndex(
         otherAccount.address,
         1
       );
+      //check the change of the balance after transfer
       await expect(
-        IdiotTower.connect(otherAccount).justTokenTransfer(
+        IdiotTower.connect(otherAccount).transferFrom(
           otherAccount.address,
           owner.address,
           tokenIndex
@@ -107,6 +114,7 @@ describe("Idiot Tower", function () {
       );
       expect(await IdiotTower.checkUserIsCoward(otherAccount.address)).to.true;
       const cowardList = [otherAccount.address];
+      //check whether other account is assigned in coward list
       expect(await IdiotTower.getCowardList()).to.deep.equal(cowardList);
     });
   });

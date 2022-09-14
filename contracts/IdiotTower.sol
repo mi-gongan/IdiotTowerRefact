@@ -6,16 +6,25 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+/// @author mi_gongan
+/// @title Idiot Tower
 contract IdiotTower is ERC721Enumerable, Ownable {
   constructor() ERC721("IdiotTower", "IDIOT") {}
 
-  uint256 public constant maxMintNumber = 200;
-
   using Counters for Counters.Counter;
+
+  /**
+   * ======================
+   * Storages
+   * ========================
+   */
+  uint256 public constant MAX_MINT_NUMBER = 200;
+
   Counters.Counter private _tokenId;
   Counters.Counter private _ownerTokenCount;
 
-  string[6] public tokenURIArray = [
+  // array of colorURI that is matched according to the random index
+  string[6] public colorURIArray = [
     "QmTG3A8rq5BQZwqLiJABEVsge2jjGre5XF9v5dDLyxhYmx", //red
     "Qmf7g9bVgHZDq4SydhPnPFfpkt3zndftAo8gPMF671Gi21", //green
     "QmSCEpSDxzQ6fB9jdbbAVEzHHwrgSpRh86tfG4SmpXVRtL", //blue
@@ -25,12 +34,25 @@ contract IdiotTower is ERC721Enumerable, Ownable {
   ];
 
   //0 : red, 1: green, 2: blue, 3: black, 4:gray, 5: white
-  mapping(uint256 => uint256) public tokenColorCount;
+  TokenColor rgbCounter;
+  TokenColor bgwCounter;
   mapping(uint256 => string) public setTokenURI;
 
   struct TokenData {
     uint256 tokenId;
-    string tokenURI;
+    string tokenURI; //46byte
+  }
+
+  /**
+   * [ Using uint80 to track count ]
+   *  1) It's almost impossible to mint more than total 2**80 NFTs
+   *  2) By the raw of big number, sum of each number cannot exceed 2**80 or similar number
+   *  3) Therefore, using uint80 to keep track of sum would not be bug.
+   */
+  struct TokenColor {
+    uint80 alpha;
+    uint80 beta;
+    uint80 gamma;
   }
 
   address[] public userList;
@@ -42,62 +64,82 @@ contract IdiotTower is ERC721Enumerable, Ownable {
   // 3: minted, coward
   mapping(address => uint256) public userStatus;
 
+  /**
+   * ======================
+   * functions
+   * ========================
+   */
+
+  /// @notice can mint under 200 at a time
+  /// @notice Owner can mint token below 200
+  /// @param count number that you want to mint
   function ownerMint(uint256 count) public onlyOwner {
     require(
       _ownerTokenCount.current() + count < 201,
       "Owner can mint token below 200"
     );
-    require(count < maxMintNumber);
+    require(count < MAX_MINT_NUMBER, "can mint under 200 at a time");
 
-    if ((userStatus[msg.sender]) == 0) {
-      userStatus[msg.sender] = 1;
-      userList.push(msg.sender);
-    } else if ((userStatus[msg.sender]) == 2) {
-      userStatus[msg.sender] = 3;
+    if ((userStatus[msg.sender] & 1) == 0) {
+      userStatus[msg.sender] |= 1;
       userList.push(msg.sender);
     }
+    uint8[6] memory rgbbgw = [0, 0, 0, 0, 0, 0];
+    uint256 i = 0;
+    do {
+      unchecked {
+        _tokenId.increment();
+        uint256 tokenId = _tokenId.current();
+        uint256 colorIndex = uint256(
+          keccak256(abi.encodePacked(block.timestamp, tokenId))
+        ) % 6;
 
-    for (uint256 i = 0; i < count; i++) {
-      _tokenId.increment();
-      uint256 tokenId = _tokenId.current();
-      uint256 colorIndex = uint256(
-        keccak256(abi.encodePacked(block.timestamp, msg.sender, tokenId))
-      ) % 6;
+        setTokenURI[tokenId] = colorURIArray[colorIndex];
+        // tokenColorCount[colorIndex]++;
+        rgbbgw[colorIndex]++;
 
-      setTokenURI[tokenId] = tokenURIArray[colorIndex];
-      tokenColorCount[colorIndex]++;
+        // tokenId |= color << 240;
 
-      _safeMint(msg.sender, tokenId);
-      _ownerTokenCount.increment();
-    }
+        _safeMint(msg.sender, tokenId);
+        _ownerTokenCount.increment();
+        ++i;
+      }
+    } while (i < count);
+    rgbCounter = TokenColor(rgbbgw[0], rgbbgw[1], rgbbgw[2]);
+    bgwCounter = TokenColor(rgbbgw[3], rgbbgw[4], rgbbgw[5]);
   }
 
+  /// @notice can mint under 200 at a time
+  /// @notice the price per token is 0.001 ether
+  /// @param count number that you want to mint
   function mint(uint256 count) public payable {
     require(msg.sender != owner(), "Owner can't mint this token");
-    require(count < maxMintNumber);
+    require(count < MAX_MINT_NUMBER, "can mint under 200 at a time");
     require(0.001 ether * count < msg.value, "Caller sent lower than price");
 
     if ((userStatus[msg.sender] & 1) == 0) {
       userStatus[msg.sender] |= 1;
       userList.push(msg.sender);
     }
+    uint8[6] memory rgbbgw = [0, 0, 0, 0, 0, 0];
+    uint256 i = 0;
+    do {
+      unchecked {
+        _tokenId.increment();
+        uint256 tokenId = _tokenId.current();
+        uint256 colorIndex = uint256(
+          keccak256(abi.encodePacked(block.timestamp, tokenId))
+        ) % 6;
 
-    for (uint256 i = 0; i < count; i++) {
-      _tokenId.increment();
-      uint256 tokenId = _tokenId.current();
-      uint256 colorIndex = uint256(
-        keccak256(abi.encodePacked(block.timestamp, msg.sender, tokenId))
-      ) % 6;
-
-      tokenColorCount[colorIndex]++;
-      setTokenURI[tokenId] = tokenURIArray[colorIndex];
-
-      _safeMint(msg.sender, tokenId);
-    }
-  }
-
-  function countTokenColor(uint256 colorIndex) external view returns (uint256) {
-    return tokenColorCount[colorIndex];
+        // tokenColorCount[colorIndex]++;
+        setTokenURI[tokenId] = colorURIArray[colorIndex];
+        rgbbgw[colorIndex]++;
+        _safeMint(msg.sender, tokenId);
+        ++i;
+      }
+    } while (i < count);
+    rgbCounter = TokenColor(rgbbgw[0], rgbbgw[1], rgbbgw[2]);
+    bgwCounter = TokenColor(rgbbgw[3], rgbbgw[4], rgbbgw[5]);
   }
 
   function getUserList() external view returns (address[] memory) {
@@ -109,26 +151,29 @@ contract IdiotTower is ERC721Enumerable, Ownable {
   }
 
   function checkUserHaveMinted(address _userAddress)
-    public
+    external
     view
     returns (bool)
   {
-    return (userStatus[_userAddress] == 1) || (userStatus[_userAddress] == 3);
+    return (userStatus[_userAddress] & 1) != 0;
   }
 
-  function checkUserIsCoward(address _userAddress) public view returns (bool) {
+  function checkUserIsCoward(address _userAddress)
+    external
+    view
+    returns (bool)
+  {
     return (userStatus[_userAddress] & 2) != 0;
   }
 
-  function justTokenTransfer(
+  function _beforeTokenTransfer(
     address from,
     address to,
     uint256 tokenId
-  ) public {
-    require(ownerOf(tokenId) == from, "You are not owner of token");
-    transferFrom(from, to, tokenId);
+  ) internal virtual override(ERC721Enumerable) {
+    super._beforeTokenTransfer(from, to, tokenId);
 
-    if ((userStatus[from] & 2) == 0) {
+    if ((from != address(0)) && ((userStatus[from] & 2) == 0)) {
       userStatus[from] |= 2;
       cowardList.push(from);
     }
@@ -136,6 +181,8 @@ contract IdiotTower is ERC721Enumerable, Ownable {
 
   //require for frontend
 
+  /// @param _userAddress address of user that want to show tokens
+  /// @return memory return tokens that the user have
   function getTokens(address _userAddress)
     external
     view
@@ -147,9 +194,28 @@ contract IdiotTower is ERC721Enumerable, Ownable {
     TokenData[] memory tokenData = new TokenData[](balanceLength);
     for (uint256 i = 0; i < balanceLength; i++) {
       uint256 tokenId = tokenOfOwnerByIndex(_userAddress, i);
-      tokenData[i] = TokenData(tokenId, tokenURIArray[tokenId]);
+      tokenData[i] = TokenData(tokenId, setTokenURI[tokenId]);
     }
     return tokenData;
+  }
+
+  /// @notice you should input the index.
+  /// @param colorIndex => 0 : red, 1: green, 2: blue, 3: black, 4:gray, 5: white
+  /// @return uint80 count of color
+  function countTokenColor(uint256 colorIndex) external view returns (uint80) {
+    if (colorIndex == 0) {
+      return rgbCounter.alpha;
+    } else if (colorIndex == 1) {
+      return rgbCounter.beta;
+    } else if (colorIndex == 2) {
+      return rgbCounter.gamma;
+    } else if (colorIndex == 3) {
+      return bgwCounter.alpha;
+    } else if (colorIndex == 4) {
+      return bgwCounter.beta;
+    } else {
+      return bgwCounter.gamma;
+    }
   }
 
   function withdraw() external onlyOwner {
