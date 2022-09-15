@@ -2,10 +2,14 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import "@nomicfoundation/hardhat-chai-matchers";
+import { BN } from "bn.js";
+let chai = require("chai");
+chai.use(require("chai-bn")(BN));
 
 describe("Idiot Tower", function () {
-  const otherAccountMintNum = 100;
-  const ownerMintNum = 100;
+  const otherAccountMintNum = 50;
+  const ownerMintNum = 50;
+  const STANDARD_PRICE = 0.001;
 
   async function deployIdiotTower() {
     const Token = await ethers.getContractFactory("IdiotTower");
@@ -61,7 +65,9 @@ describe("Idiot Tower", function () {
       const { IdiotTower, otherAccount } = await loadFixture(deployIdiotTower);
       //mint 3 pieces
       await IdiotTower.connect(otherAccount).mint(otherAccountMintNum, {
-        value: ethers.utils.parseEther("1"),
+        value: ethers.utils.parseEther(
+          `${STANDARD_PRICE * otherAccountMintNum + 0.0000001}`
+        ),
       });
       expect(await IdiotTower.checkUserHaveMinted(otherAccount.address)).to
         .true;
@@ -84,6 +90,13 @@ describe("Idiot Tower", function () {
       //check whether owner is assigned
       expect(await IdiotTower.getUserList()).to.deep.equal([owner.address]);
     });
+
+    it("3.3 200 over owner minting", async function () {
+      const { IdiotTower, owner } = await loadFixture(deployIdiotTower);
+      await expect(IdiotTower.connect(owner).ownerMint(201)).to.revertedWith(
+        "Owner can mint token below 200"
+      );
+    });
   });
 
   describe("4. Check the operation of transfer", async function () {
@@ -93,7 +106,9 @@ describe("Idiot Tower", function () {
       );
       //other account mint 100 pieces
       await IdiotTower.connect(otherAccount).mint(otherAccountMintNum, {
-        value: ethers.utils.parseEther("100"),
+        value: ethers.utils.parseEther(
+          `${STANDARD_PRICE * otherAccountMintNum + 0.0000001}`
+        ),
       });
       // get the first token of other account
       const tokenIndex = IdiotTower.tokenOfOwnerByIndex(
@@ -116,6 +131,98 @@ describe("Idiot Tower", function () {
       const cowardList = [otherAccount.address];
       //check whether other account is assigned in coward list
       expect(await IdiotTower.getCowardList()).to.deep.equal(cowardList);
+    });
+  });
+
+  describe("5. Check the operation of color minting", function () {
+    it("5.1 other account", async function () {
+      const { IdiotTower, otherAccount } = await loadFixture(deployIdiotTower);
+      const colorIndex = 2;
+      let colorRatio = 0;
+      await IdiotTower.roughColorRatio(colorIndex).then(
+        (res) => (colorRatio = Number(res))
+      );
+      await IdiotTower.connect(otherAccount).wantColorMint(
+        colorIndex,
+        otherAccountMintNum,
+        {
+          value: ethers.utils.parseEther(
+            `${
+              STANDARD_PRICE * 4 * colorRatio * otherAccountMintNum + 0.0000001
+            }`
+          ),
+        }
+      );
+      expect(await IdiotTower.countTokenColor(colorIndex)).to.equal(
+        otherAccountMintNum
+      );
+    });
+    it("5.2 owner", async function () {
+      const { IdiotTower, owner } = await loadFixture(deployIdiotTower);
+      const colorIndex = 3;
+      await IdiotTower.connect(owner).wantColorOwnerMint(
+        colorIndex,
+        ownerMintNum
+      );
+      expect(await IdiotTower.countTokenColor(colorIndex)).to.equal(
+        ownerMintNum
+      );
+    });
+  });
+
+  describe("6. Check the opeation of Change of token", function () {
+    it("6.1 operation", async function () {
+      const { IdiotTower, otherAccount, owner } = await loadFixture(
+        deployIdiotTower
+      );
+      // owner mint index1 token of 1pices
+      await IdiotTower.connect(owner).wantColorOwnerMint(1, 1);
+      // other account mint index2 token of 1pices
+      await IdiotTower.connect(otherAccount).wantColorMint(2, 1, {
+        value: ethers.utils.parseEther(`${STANDARD_PRICE + 0.0000001}`),
+      });
+      // before token
+      const beforeOwnerToken = await IdiotTower.connect(owner).getTokens(
+        owner.address
+      );
+      const beforeOtherAccountToken = await IdiotTower.connect(
+        otherAccount
+      ).getTokens(otherAccount.address);
+      // token change
+      await IdiotTower.connect(owner).colorChangeBetweenUser(
+        owner.address,
+        otherAccount.address,
+        1,
+        2
+      );
+      // after token
+      const afterOwnerToken = await IdiotTower.connect(owner).getTokens(
+        owner.address
+      );
+      const afterOtherAccountToken = await IdiotTower.connect(
+        otherAccount
+      ).getTokens(otherAccount.address);
+      //check that the exchange was done properly
+      expect(afterOwnerToken).to.deep.equal(beforeOtherAccountToken);
+      expect(afterOtherAccountToken).to.deep.equal(beforeOwnerToken);
+      // coward list check
+      expect(await IdiotTower.getCowardList()).to.deep.equal([]);
+    });
+  });
+
+  describe("7.Check the operation that three token of same color is to be one token that you want", function () {
+    it("7.1 operation", async function () {
+      const { IdiotTower, owner } = await loadFixture(deployIdiotTower);
+      // color of index2 is minted 3 pieces
+      await IdiotTower.connect(owner).wantColorOwnerMint(2, 3);
+      console.log(await IdiotTower.connect(owner).getTokens(owner.address));
+      // 3pieces of index2 change to 1piece of index3
+      await IdiotTower.connect(owner).mintThreeColorToOneColor(1, 2, 3, 3);
+      console.log(await IdiotTower.connect(owner).getTokens(owner.address));
+      //check count of token
+      expect(await IdiotTower.balanceOf(owner.address)).to.equal(1);
+      //check the color index of token
+      expect(await IdiotTower.getColor(4)).to.deep.equal(3);
     });
   });
 });

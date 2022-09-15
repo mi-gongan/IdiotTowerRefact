@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "hardhat/console.sol";
 
 /// @author mi_gongan
 /// @title Idiot Tower
@@ -19,40 +20,29 @@ contract IdiotTower is ERC721Enumerable, Ownable {
    * ========================
    */
   uint256 public constant MAX_MINT_NUMBER = 200;
+  uint256 public constant STANDARD_PRICE = 0.001 ether;
+
+  bool public justChange = false;
 
   Counters.Counter private _tokenId;
   Counters.Counter private _ownerTokenCount;
 
-  // array of colorURI that is matched according to the random index
-  string[6] public colorURIArray = [
-    "QmTG3A8rq5BQZwqLiJABEVsge2jjGre5XF9v5dDLyxhYmx", //red
-    "Qmf7g9bVgHZDq4SydhPnPFfpkt3zndftAo8gPMF671Gi21", //green
-    "QmSCEpSDxzQ6fB9jdbbAVEzHHwrgSpRh86tfG4SmpXVRtL", //blue
-    "QmYD6rjhhqrutAFNFP4KjfQnvgWwrjJNccEsW9hG4bt555", //black
-    "QmY7K9ChdowJEPTT8fUAJvEy9UJTcGY6nXXoiTLXmpPtiR", //gray
-    "QmXfcgkDCQ3a1mJDsHRhNqY7yNtGo6hRoDAJGs3xS6dKYa" //white
-  ];
-
   //0 : red, 1: green, 2: blue, 3: black, 4:gray, 5: white
-  TokenColor rgbCounter;
-  TokenColor bgwCounter;
-  mapping(uint256 => string) public setTokenURI;
+  mapping(uint256 => uint256) public setColorIndex;
+  uint256[6] public tokenColorCount = [0, 0, 0, 0, 0, 0];
+
+  // string[6] public colorURIArray = [
+  //   "QmTG3A8rq5BQZwqLiJABEVsge2jjGre5XF9v5dDLyxhYmx", //red
+  //   "Qmf7g9bVgHZDq4SydhPnPFfpkt3zndftAo8gPMF671Gi21", //green
+  //   "QmSCEpSDxzQ6fB9jdbbAVEzHHwrgSpRh86tfG4SmpXVRtL", //blue
+  //   "QmYD6rjhhqrutAFNFP4KjfQnvgWwrjJNccEsW9hG4bt555", //black
+  //   "QmY7K9ChdowJEPTT8fUAJvEy9UJTcGY6nXXoiTLXmpPtiR", //gray
+  //   "QmXfcgkDCQ3a1mJDsHRhNqY7yNtGo6hRoDAJGs3xS6dKYa" //white
+  // ];
 
   struct TokenData {
     uint256 tokenId;
-    string tokenURI; //46byte
-  }
-
-  /**
-   * [ Using uint80 to track count ]
-   *  1) It's almost impossible to mint more than total 2**80 NFTs
-   *  2) By the raw of big number, sum of each number cannot exceed 2**80 or similar number
-   *  3) Therefore, using uint80 to keep track of sum would not be bug.
-   */
-  struct TokenColor {
-    uint80 alpha;
-    uint80 beta;
-    uint80 gamma;
+    uint256 colorIndex;
   }
 
   address[] public userList;
@@ -94,35 +84,35 @@ contract IdiotTower is ERC721Enumerable, Ownable {
           keccak256(abi.encodePacked(block.timestamp, tokenId))
         ) % 6;
 
-        setTokenURI[tokenId] = colorURIArray[colorIndex];
-        // tokenColorCount[colorIndex]++;
+        setColorIndex[tokenId] = colorIndex;
         rgbbgw[colorIndex]++;
-
-        // tokenId |= color << 240;
 
         _safeMint(msg.sender, tokenId);
         _ownerTokenCount.increment();
         ++i;
       }
     } while (i < count);
-    rgbCounter = TokenColor(rgbbgw[0], rgbbgw[1], rgbbgw[2]);
-    bgwCounter = TokenColor(rgbbgw[3], rgbbgw[4], rgbbgw[5]);
+    unchecked {
+      for (uint256 j = 0; i < 6; i++) {
+        tokenColorCount[j] += rgbbgw[j];
+      }
+    }
   }
 
   /// @notice can mint under 200 at a time
-  /// @notice the price per token is 0.001 ether
+  /// @notice the price per token is STANDARD_PRICE
   /// @param count number that you want to mint
   function mint(uint256 count) public payable {
     require(msg.sender != owner(), "Owner can't mint this token");
     require(count < MAX_MINT_NUMBER, "can mint under 200 at a time");
-    require(0.001 ether * count < msg.value, "Caller sent lower than price");
+    require(STANDARD_PRICE * count < msg.value, "Caller sent lower than price");
 
     if ((userStatus[msg.sender] & 1) == 0) {
       userStatus[msg.sender] |= 1;
       userList.push(msg.sender);
     }
-    uint8[6] memory rgbbgw = [0, 0, 0, 0, 0, 0];
     uint256 i = 0;
+    uint8[6] memory rgbbgw = [0, 0, 0, 0, 0, 0];
     do {
       unchecked {
         _tokenId.increment();
@@ -131,15 +121,115 @@ contract IdiotTower is ERC721Enumerable, Ownable {
           keccak256(abi.encodePacked(block.timestamp, tokenId))
         ) % 6;
 
-        // tokenColorCount[colorIndex]++;
-        setTokenURI[tokenId] = colorURIArray[colorIndex];
+        setColorIndex[tokenId] = colorIndex;
         rgbbgw[colorIndex]++;
         _safeMint(msg.sender, tokenId);
         ++i;
       }
     } while (i < count);
-    rgbCounter = TokenColor(rgbbgw[0], rgbbgw[1], rgbbgw[2]);
-    bgwCounter = TokenColor(rgbbgw[3], rgbbgw[4], rgbbgw[5]);
+    unchecked {
+      for (uint256 j = 0; i < 6; i++) {
+        tokenColorCount[j] += rgbbgw[j];
+      }
+    }
+  }
+
+  /// @dev this function mint the token of color that you want
+  function wantColorOwnerMint(uint256 colorIndex, uint256 count) public {
+    require(
+      _ownerTokenCount.current() + count < 201,
+      "Owner can mint token below 200"
+    );
+    require(count < MAX_MINT_NUMBER, "can mint under 200 at a time");
+
+    if ((userStatus[msg.sender] & 1) == 0) {
+      userStatus[msg.sender] |= 1;
+      userList.push(msg.sender);
+    }
+    uint256 i = 0;
+    do {
+      unchecked {
+        _tokenId.increment();
+        uint256 tokenId = _tokenId.current();
+
+        setColorIndex[tokenId] = colorIndex;
+        _safeMint(msg.sender, tokenId);
+        _ownerTokenCount.increment();
+        ++i;
+      }
+    } while (i < count);
+    tokenColorCount[colorIndex] += count;
+  }
+
+  function roughColorRatio(uint256 colorIndex) public view returns (uint256) {
+    return (1 - countTokenColor(colorIndex)) / (1 + totalSupply());
+  }
+
+  /// @dev this function mint the token of color that you want
+  /// @notice price is (wantColorMintPrice) * count +0.01
+  function wantColorMint(uint256 colorIndex, uint256 count) public payable {
+    require(msg.sender != owner(), "Owner can't mint this token");
+    require(count < MAX_MINT_NUMBER, "can mint under 200 at a time");
+    require(
+      STANDARD_PRICE * 4 * roughColorRatio(colorIndex) * count < msg.value,
+      "Caller sent lower than price"
+    );
+    if ((userStatus[msg.sender] & 1) == 0) {
+      userStatus[msg.sender] |= 1;
+      userList.push(msg.sender);
+    }
+    uint256 i = 0;
+    do {
+      unchecked {
+        _tokenId.increment();
+        uint256 tokenId = _tokenId.current();
+
+        setColorIndex[tokenId] = colorIndex;
+        _safeMint(msg.sender, tokenId);
+        ++i;
+      }
+    } while (i < count);
+    tokenColorCount[colorIndex] += count;
+  }
+
+  /// @dev Through this function, you can change one token of color to want after three by burning three token of same color
+  function mintThreeColorToOneColor(
+    uint256 tokenId_1,
+    uint256 tokenId_2,
+    uint256 tokenId_3,
+    uint256 wantColorIndex
+  ) public {
+    require(
+      (ownerOf(tokenId_1) == msg.sender) &&
+        (ownerOf(tokenId_2) == msg.sender) &&
+        (ownerOf(tokenId_3) == msg.sender),
+      "you are not token owner"
+    );
+    require(
+      setColorIndex[tokenId_1] == setColorIndex[tokenId_2] &&
+        setColorIndex[tokenId_1] == setColorIndex[tokenId_3],
+      "The color of tokens is different"
+    );
+    _burn(tokenId_1);
+    _burn(tokenId_2);
+    _burn(tokenId_3);
+    if (msg.sender != owner()) {
+      wantColorMint(wantColorIndex, 1);
+    } else {
+      wantColorOwnerMint(wantColorIndex, 1);
+    }
+  }
+
+  function colorChangeBetweenUser(
+    address user1,
+    address user2,
+    uint256 token1,
+    uint256 token2
+  ) public {
+    justChange = true;
+    _transfer(user1, user2, token1);
+    _transfer(user2, user1, token2);
+    justChange = false;
   }
 
   function getUserList() external view returns (address[] memory) {
@@ -173,9 +263,29 @@ contract IdiotTower is ERC721Enumerable, Ownable {
   ) internal virtual override(ERC721Enumerable) {
     super._beforeTokenTransfer(from, to, tokenId);
 
-    if ((from != address(0)) && ((userStatus[from] & 2) == 0)) {
+    if (
+      (from != address(0)) &&
+      ((userStatus[from] & 2) == 0) &&
+      (justChange == false)
+    ) {
       userStatus[from] |= 2;
       cowardList.push(from);
+    }
+  }
+
+  /// @dev if you burn, count of color decrease
+  function _afterTokenTransfer(
+    address from,
+    address to,
+    uint256 tokenId
+  ) internal virtual override(ERC721) {
+    super._afterTokenTransfer(from, to, tokenId);
+    if (to == address(0)) {
+      uint256 burnColorIndex = setColorIndex[tokenId];
+      tokenColorCount[burnColorIndex] -= countTokenColor(burnColorIndex);
+      if (from == owner() && _ownerTokenCount.current() > 0) {
+        _ownerTokenCount.decrement();
+      }
     }
   }
 
@@ -194,28 +304,20 @@ contract IdiotTower is ERC721Enumerable, Ownable {
     TokenData[] memory tokenData = new TokenData[](balanceLength);
     for (uint256 i = 0; i < balanceLength; i++) {
       uint256 tokenId = tokenOfOwnerByIndex(_userAddress, i);
-      tokenData[i] = TokenData(tokenId, setTokenURI[tokenId]);
+      tokenData[i] = TokenData(tokenId, setColorIndex[tokenId]);
     }
     return tokenData;
   }
 
   /// @notice you should input the index.
   /// @param colorIndex => 0 : red, 1: green, 2: blue, 3: black, 4:gray, 5: white
-  /// @return uint80 count of color
-  function countTokenColor(uint256 colorIndex) external view returns (uint80) {
-    if (colorIndex == 0) {
-      return rgbCounter.alpha;
-    } else if (colorIndex == 1) {
-      return rgbCounter.beta;
-    } else if (colorIndex == 2) {
-      return rgbCounter.gamma;
-    } else if (colorIndex == 3) {
-      return bgwCounter.alpha;
-    } else if (colorIndex == 4) {
-      return bgwCounter.beta;
-    } else {
-      return bgwCounter.gamma;
-    }
+  /// @return uint256 count of color
+  function countTokenColor(uint256 colorIndex) public view returns (uint256) {
+    return tokenColorCount[colorIndex];
+  }
+
+  function getColor(uint256 tokenId) public view returns (uint256) {
+    return setColorIndex[tokenId];
   }
 
   function withdraw() external onlyOwner {
