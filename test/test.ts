@@ -26,19 +26,13 @@ describe("Idiot Tower", function () {
       expect(await IdiotTower.owner()).to.equal(owner.address);
     });
 
-    it("1.2 Should assign the total supply of tokens to the owner", async function () {
-      const { IdiotTower, owner } = await loadFixture(deployIdiotTower);
-      const ownerBalance = await IdiotTower.balanceOf(owner.address);
-      expect(await IdiotTower.totalSupply()).to.equal(ownerBalance);
-    });
-
-    it("1.3 Check the Token Name", async function () {
+    it("1.2 Check the Token Name", async function () {
       const { IdiotTower } = await loadFixture(deployIdiotTower);
       const tokenName = "IdiotTower";
       expect(await IdiotTower.name()).to.equal(tokenName);
     });
 
-    it("1.4 Check the Token Symbol", async function () {
+    it("1.3 Check the Token Symbol", async function () {
       const { IdiotTower } = await loadFixture(deployIdiotTower);
       const tokenSymbol = "IDIOT";
       expect(await IdiotTower.symbol()).to.equal(tokenSymbol);

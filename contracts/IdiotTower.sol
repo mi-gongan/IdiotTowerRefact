@@ -161,10 +161,6 @@ contract IdiotTower is ERC721Enumerable, Ownable {
     tokenColorCount[colorIndex] += count;
   }
 
-  function roughColorRatio(uint256 colorIndex) public view returns (uint256) {
-    return (1 - countTokenColor(colorIndex)) / (1 + totalSupply());
-  }
-
   /// @dev this function mint the token of color that you want
   /// @notice price is (wantColorMintPrice) * count +0.01
   function wantColorMint(uint256 colorIndex, uint256 count) public payable {
@@ -190,6 +186,10 @@ contract IdiotTower is ERC721Enumerable, Ownable {
       }
     } while (i < count);
     tokenColorCount[colorIndex] += count;
+  }
+
+  function roughColorRatio(uint256 colorIndex) public view returns (uint256) {
+    return (1 - countTokenColor(colorIndex)) / (1 + totalSupply());
   }
 
   /// @dev Through this function, you can change one token of color to want after three by burning three token of same color
